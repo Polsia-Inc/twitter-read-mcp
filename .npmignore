@@ -1,0 +1,18 @@
+# Test files
+test-*.js
+
+# Internal documentation
+CHECKLIST.md
+COMPLETION-REPORT.md
+DEPLOYMENT.md
+SUBMISSION.md
+TESTING.md
+
+# Source TypeScript (build output is included)
+src/
+
+# Development files
+tsconfig.json
+.env
+.env.*
+!.env.example

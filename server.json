@@ -1,0 +1,69 @@
+{
+  "name": "twitter-read",
+  "title": "Twitter Read MCP Server",
+  "description": "MCP server for reading Twitter/X engagement data including tweet metrics, mentions, replies, and search with built-in rate limiting",
+  "version": "1.0.0",
+  "author": {
+    "name": "Polsia",
+    "url": "https://polsia.com"
+  },
+  "homepage": "https://github.com/Polsia-Inc/twitter-read-mcp",
+  "license": "MIT",
+  "keywords": [
+    "twitter",
+    "x",
+    "social-media",
+    "analytics",
+    "engagement",
+    "metrics",
+    "mcp"
+  ],
+  "category": "social-media",
+  "package": {
+    "type": "npm",
+    "name": "@polsia/twitter-read-mcp",
+    "version": "1.0.0"
+  },
+  "runtime": {
+    "node": ">=18.0.0"
+  },
+  "config": {
+    "required": [
+      {
+        "name": "TWITTER_BEARER_TOKEN",
+        "description": "Twitter API v2 Bearer Token for app-only authentication",
+        "type": "string"
+      }
+    ],
+    "optional": [
+      {
+        "name": "TWITTER_API_KEY",
+        "description": "Twitter API Key (alternative to Bearer Token for OAuth 2.0)",
+        "type": "string"
+      },
+      {
+        "name": "TWITTER_API_SECRET",
+        "description": "Twitter API Secret (required if using API Key)",
+        "type": "string"
+      }
+    ]
+  },
+  "tools": [
+    {
+      "name": "get_tweet_metrics",
+      "description": "Get engagement metrics for a specific tweet including likes, retweets, replies, and impressions"
+    },
+    {
+      "name": "get_mentions",
+      "description": "Get recent @mentions of the authenticated account"
+    },
+    {
+      "name": "get_replies",
+      "description": "Get replies to a specific tweet"
+    },
+    {
+      "name": "search_tweets",
+      "description": "Search for tweets matching a query and return results with engagement metrics"
+    }
+  ]
+}

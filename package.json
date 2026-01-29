@@ -1,0 +1,41 @@
+{
+  "name": "@polsia/twitter-read-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for reading Twitter/X engagement metrics and data",
+  "type": "module",
+  "bin": {
+    "twitter-read-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "prepare": "npm run build",
+    "dev": "tsc && node build/index.js",
+    "watch": "tsc --watch"
+  },
+  "keywords": [
+    "mcp",
+    "twitter",
+    "x",
+    "api",
+    "engagement",
+    "metrics"
+  ],
+  "author": "Polsia",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Polsia-Inc/twitter-read-mcp"
+  },
+  "homepage": "https://github.com/Polsia-Inc/twitter-read-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/Polsia-Inc/twitter-read-mcp/issues"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "twitter-api-v2": "^1.17.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
