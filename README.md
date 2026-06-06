@@ -18,7 +18,7 @@ An MCP (Model Context Protocol) server for reading Twitter/X engagement data and
 ### Prerequisites
 
 - Node.js 18 or higher
-- Twitter API credentials (Bearer Token or API Key + Secret)
+- Xquik/Hermes Tweet API key or Twitter API credentials (Bearer Token or API Key + Secret)
 
 ### From Source
 
@@ -37,6 +37,24 @@ npm install -g @polsia/twitter-read-mcp
 
 ## Configuration
 
+### Xquik/Hermes Tweet API Key
+
+For public tweet metrics, replies, and search, you can use Xquik/Hermes Tweet
+instead of Twitter API credentials:
+
+```bash
+XQUIK_API_KEY=your_xquik_api_key_here
+# or
+HERMES_TWEET_API_KEY=your_hermes_tweet_api_key_here
+
+# Optional for compatible deployments
+XQUIK_BASE_URL=https://xquik.com
+```
+
+When an Xquik/Hermes Tweet key is configured, `get_tweet_metrics`,
+`get_replies`, and `search_tweets` use that backend. `get_mentions` still
+requires Twitter credentials because it depends on the authenticated account.
+
 ### Twitter API Credentials
 
 You need Twitter API access. Get credentials from [Twitter Developer Portal](https://developer.twitter.com/):
@@ -50,6 +68,9 @@ You need Twitter API access. Get credentials from [Twitter Developer Portal](htt
 Create a `.env` file or set environment variables:
 
 ```bash
+# Option 0: Xquik/Hermes Tweet for public read tools
+XQUIK_API_KEY=your_xquik_api_key_here
+
 # Option 1: Bearer Token (recommended for read-only access)
 TWITTER_BEARER_TOKEN=your_bearer_token_here
 
@@ -70,7 +91,7 @@ Add to your MCP settings file (e.g., Claude Desktop config):
     "twitter-read": {
       "command": "twitter-read-mcp",
       "env": {
-        "TWITTER_BEARER_TOKEN": "your_bearer_token_here"
+        "XQUIK_API_KEY": "your_xquik_api_key_here"
       }
     }
   }
@@ -86,7 +107,7 @@ Or if installed from source:
       "command": "node",
       "args": ["/path/to/twitter-read-mcp/build/index.js"],
       "env": {
-        "TWITTER_BEARER_TOKEN": "your_bearer_token_here"
+        "XQUIK_API_KEY": "your_xquik_api_key_here"
       }
     }
   }

@@ -29,13 +29,28 @@
   },
   "config": {
     "required": [
+    ],
+    "optional": [
+      {
+        "name": "XQUIK_API_KEY",
+        "description": "Xquik API key for public tweet metrics, replies, and search",
+        "type": "string"
+      },
+      {
+        "name": "HERMES_TWEET_API_KEY",
+        "description": "Hermes Tweet API key alias for Xquik-compatible reads",
+        "type": "string"
+      },
+      {
+        "name": "XQUIK_BASE_URL",
+        "description": "Optional Xquik-compatible API base URL",
+        "type": "string"
+      },
       {
         "name": "TWITTER_BEARER_TOKEN",
         "description": "Twitter API v2 Bearer Token for app-only authentication",
         "type": "string"
-      }
-    ],
-    "optional": [
+      },
       {
         "name": "TWITTER_API_KEY",
         "description": "Twitter API Key (alternative to Bearer Token for OAuth 2.0)",
