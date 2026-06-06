@@ -42,6 +42,8 @@ class RateLimiter {
 class TwitterReadServer {
   private server: Server;
   private twitterClient: TwitterApiReadOnly | null = null;
+  private readonly xquikApiKey = process.env.XQUIK_API_KEY || process.env.HERMES_TWEET_API_KEY;
+  private readonly xquikBaseUrl = (process.env.XQUIK_BASE_URL || 'https://xquik.com').replace(/\/$/, '');
   private rateLimiter: RateLimiter;
 
   constructor() {
@@ -102,7 +104,9 @@ class TwitterReadServer {
 
     // Handle tool calls
     this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      if (!this.twitterClient) {
+      const toolName = request.params.name;
+
+      if (!this.canUseXquik(toolName) && !this.twitterClient) {
         this.initializeTwitterClient();
       }
 
@@ -122,7 +126,7 @@ class TwitterReadServer {
       }
 
       try {
-        const result = await this.handleToolCall(request.params.name, request.params.arguments || {});
+        const result = await this.handleToolCall(toolName, request.params.arguments || {});
         this.rateLimiter.recordRequest();
 
         return {
@@ -231,7 +235,7 @@ class TwitterReadServer {
   }
 
   private async handleToolCall(name: string, args: any): Promise<any> {
-    if (!this.twitterClient) {
+    if (!this.canUseXquik(name) && !this.twitterClient) {
       throw new Error('Twitter client not initialized');
     }
 
@@ -257,6 +261,15 @@ class TwitterReadServer {
    * Get metrics for a specific tweet
    */
   private async getTweetMetrics(tweetId: string): Promise<any> {
+    if (this.xquikApiKey) {
+      const tweet = this.normalizeXquikTweet(await this.xquikRequest(`/api/v1/x/tweets/${tweetId}`));
+
+      return {
+        ...tweet,
+        requestsRemaining: this.rateLimiter.getRequestsRemaining(),
+      };
+    }
+
     const tweet = await this.twitterClient!.v2.singleTweet(tweetId, {
       'tweet.fields': [
         'public_metrics',
@@ -291,6 +304,10 @@ class TwitterReadServer {
    * Get recent mentions of the authenticated user
    */
   private async getMentions(sinceDate?: string, maxResults: number = 10): Promise<any> {
+    if (!this.twitterClient) {
+      this.initializeTwitterClient();
+    }
+
     // Get authenticated user's ID
     const me = await this.twitterClient!.v2.me();
 
@@ -328,6 +345,17 @@ class TwitterReadServer {
    * Get replies to a specific tweet
    */
   private async getReplies(tweetId: string, maxResults: number = 10): Promise<any> {
+    if (this.xquikApiKey) {
+      const query = `conversation_id:${tweetId}`;
+      const tweets = await this.xquikSearch(query, maxResults);
+
+      return {
+        replies: tweets,
+        count: tweets.length,
+        requestsRemaining: this.rateLimiter.getRequestsRemaining(),
+      };
+    }
+
     // Search for tweets that are in reply to the target tweet
     const replies = await this.twitterClient!.v2.search(`conversation_id:${tweetId}`, {
       'tweet.fields': ['created_at', 'author_id', 'public_metrics', 'referenced_tweets'],
@@ -357,6 +385,18 @@ class TwitterReadServer {
    * Search tweets with engagement metrics
    */
   private async searchTweets(query: string, maxResults: number = 10, startTime?: string): Promise<any> {
+    if (this.xquikApiKey) {
+      const queryWithStartTime = startTime ? `${query} since:${startTime.slice(0, 10)}` : query;
+      const tweets = await this.xquikSearch(queryWithStartTime, maxResults);
+
+      return {
+        tweets,
+        count: tweets.length,
+        query,
+        requestsRemaining: this.rateLimiter.getRequestsRemaining(),
+      };
+    }
+
     const options: any = {
       'tweet.fields': ['created_at', 'author_id', 'public_metrics'],
       'user.fields': ['username', 'name'],
@@ -385,6 +425,119 @@ class TwitterReadServer {
       count: results.data.data?.length || 0,
       query,
       requestsRemaining: this.rateLimiter.getRequestsRemaining(),
+    };
+  }
+
+  private canUseXquik(toolName: string): boolean {
+    return Boolean(
+      this.xquikApiKey &&
+        ['get_tweet_metrics', 'get_replies', 'search_tweets'].includes(toolName)
+    );
+  }
+
+  private async xquikRequest(path: string, query: Record<string, string | number | undefined> = {}): Promise<any> {
+    if (!this.xquikApiKey) {
+      throw new Error('Missing Xquik credentials. Set XQUIK_API_KEY or HERMES_TWEET_API_KEY');
+    }
+
+    const url = new URL(path, this.xquikBaseUrl);
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== '') {
+        url.searchParams.set(key, String(value));
+      }
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${this.xquikApiKey}`,
+        'X-API-Key': this.xquikApiKey,
+      },
+    });
+
+    const text = await response.text();
+    const data = this.parseJson(text);
+
+    if (!response.ok) {
+      const message = this.firstValue(data, ['message', 'error', 'detail']) || text;
+      throw new Error(`Xquik API ${response.status}: ${message}`);
+    }
+
+    return data;
+  }
+
+  private async xquikSearch(query: string, maxResults: number): Promise<any[]> {
+    const data = await this.xquikRequest('/api/v1/x/tweets/search', {
+      q: query,
+      limit: Math.min(Math.max(maxResults, 10), 100),
+    });
+
+    return this.findTweetList(data).map(tweet => this.normalizeXquikTweet(tweet));
+  }
+
+  private parseJson(text: string): any {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { raw: text };
+    }
+  }
+
+  private findTweetList(value: any): any[] {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== 'object') return [];
+
+    for (const key of ['tweets', 'results', 'items', 'data']) {
+      const candidate = value[key];
+      if (Array.isArray(candidate)) return candidate;
+
+      const nested = this.findTweetList(candidate);
+      if (nested.length > 0) return nested;
+    }
+
+    return [];
+  }
+
+  private firstValue(value: any, keys: string[]): string | undefined {
+    if (!value || typeof value !== 'object') return undefined;
+
+    for (const key of keys) {
+      const candidate = value[key];
+      if (candidate !== undefined && candidate !== null && candidate !== '') {
+        return String(candidate);
+      }
+    }
+
+    for (const child of Object.values(value)) {
+      const nested = this.firstValue(child, keys);
+      if (nested) return nested;
+    }
+
+    return undefined;
+  }
+
+  private numericValue(value: any, keys: string[]): number {
+    const raw = this.firstValue(value, keys);
+    if (!raw) return 0;
+
+    const parsed = Number(raw.replace(/,/g, ''));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  private normalizeXquikTweet(tweet: any): any {
+    return {
+      tweet_id: this.firstValue(tweet, ['tweet_id', 'tweetId', 'id', 'id_str', 'rest_id']) || '',
+      text: this.firstValue(tweet, ['text', 'full_text', 'fullText', 'content']) || '',
+      created_at: this.firstValue(tweet, ['created_at', 'createdAt', 'creation_date', 'creationDate', 'date']),
+      author_id: this.firstValue(tweet, ['author_id', 'authorId', 'user_id', 'userId', 'username', 'handle']),
+      metrics: {
+        likes: this.numericValue(tweet, ['like_count', 'likeCount', 'favorite_count', 'favoriteCount', 'likes']),
+        retweets: this.numericValue(tweet, ['retweet_count', 'retweetCount', 'retweets']),
+        replies: this.numericValue(tweet, ['reply_count', 'replyCount', 'replies']),
+        quotes: this.numericValue(tweet, ['quote_count', 'quoteCount', 'quotes']),
+        bookmarks: this.numericValue(tweet, ['bookmark_count', 'bookmarkCount', 'bookmarks']),
+        impressions: this.numericValue(tweet, ['impression_count', 'impressionCount', 'views', 'view_count', 'viewCount']),
+      },
     };
   }
 
