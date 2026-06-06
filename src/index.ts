@@ -468,7 +468,7 @@ class TwitterReadServer {
 
   private async xquikSearch(query: string, maxResults: number): Promise<any[]> {
     const data = await this.xquikRequest('/api/v1/x/tweets/search', {
-      query,
+      q: query,
       limit: Math.min(Math.max(maxResults, 10), 100),
     });
 
